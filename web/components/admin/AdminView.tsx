@@ -21,7 +21,7 @@ import {
     Image as ImageIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Seeder } from './Seeder';
+
 
 export default function AdminView() {
     const { ready, authenticated, user, getAccessToken, login } = usePrivy();
@@ -261,10 +261,7 @@ export default function AdminView() {
                     </motion.div>
                 </div>
 
-                {/* Seeder Section */}
-                <div className="max-w-4xl mx-auto mb-8">
-                    <Seeder />
-                </div>
+
 
                 {/* Forms Section */}
                 <div className="max-w-4xl mx-auto">
