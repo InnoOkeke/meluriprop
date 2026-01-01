@@ -62,7 +62,7 @@ export function useAdmin() {
                 address: registryAddress,
                 abi: PropertiesRegistryABI,
                 functionName: 'registerProperty',
-                args: [name, location, documentIPFS, valuationWei, targetRaiseWei, totalTokensBigInt],
+                args: [name, location, documentIPFS, valuationWei, targetRaiseWei, totalTokensBigInt, 0], // 0 = Residential default
             });
 
             const hash = await walletClient.writeContract(request);

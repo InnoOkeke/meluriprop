@@ -100,7 +100,8 @@ export async function POST() {
                         p.documentIPFS,
                         parseUnits(p.valuation, 6), // USDC 6 decimals
                         parseUnits(p.targetRaise, 6),
-                        BigInt(p.totalTokens)
+                        BigInt(p.totalTokens),
+                        0 // Category.Residential
                     ]
                 });
 
