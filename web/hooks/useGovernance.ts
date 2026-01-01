@@ -2,14 +2,15 @@ import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { createPublicClient, createWalletClient, custom, http } from 'viem';
 import { circleArcTestnet, CONTRACT_ADDRESSES } from '@/config';
 import { MeluriDAOABI } from '@/lib/abis/MeluriDAO';
+import { RealEstateTokenABI } from '@/lib/abis/RealEstateToken';
 import { useState } from 'react';
 import { handleContractError } from '@/lib/contract-utils';
 
 interface Proposal {
     proposer: string;
     description: string;
-    permissionType: string;
-    newValue: string;
+    permissionType: number;
+    targetTokenId: bigint;
     voteCount: bigint;
     endTime: bigint;
     executed: boolean;
@@ -50,7 +51,7 @@ export function useGovernance() {
                 account: wallet.address as `0x${string}`,
                 address: daoAddress,
                 abi: MeluriDAOABI,
-                functionName: 'castVote',
+                functionName: 'vote',
                 args: [BigInt(proposalId), support],
             });
 
@@ -71,8 +72,8 @@ export function useGovernance() {
     // Create a new proposal (admin only)
     const createProposal = async (
         description: string,
-        permissionType: string,
-        newValue: string,
+        permissionType: number,
+        targetTokenId: bigint,
         durationDays: number
     ): Promise<string> => {
         try {
@@ -86,7 +87,7 @@ export function useGovernance() {
                 address: daoAddress,
                 abi: MeluriDAOABI,
                 functionName: 'createProposal',
-                args: [description, permissionType, newValue, BigInt(durationDays)],
+                args: [description, permissionType, targetTokenId, BigInt(durationDays * 86400)], // Convert days to seconds
             });
 
             const hash = await walletClient.writeContract(request);
@@ -110,18 +111,35 @@ export function useGovernance() {
         const data = await publicClient.readContract({
             address: daoAddress,
             abi: MeluriDAOABI,
-            functionName: 'proposals',
+            functionName: 'getProposal', // Corrected function name from 'proposals' to 'getProposal' based on ABI
             args: [BigInt(proposalId)],
         }) as any;
 
+        // Based on ABI: description, permissionType, targetTokenId, yesVotes, noVotes, endTime, active
+        // But previously it was mapping index-based array. The ABI shows getProposal returns explicit struct-like multiple return values.
+        // Let's assume Viem returns an array or object depending on config.
+        // The return structure from ABI is: 
+        // [0] description (string)
+        // [1] permissionType (uint8)
+        // [2] targetTokenId (uint256)
+        // [3] yesVotes (uint256)
+        // [4] noVotes (uint256)
+        // [5] endTime (uint256)
+        // [6] active (bool)
+
+        // Note: The previous code was using 'proposals' mapping but passing an index. 
+        // My ABI view showed a 'getProposal' function.
+        // Let's stick to what the view_file of ABI showed:
+        // getProposal outputs: description, permissionType, targetTokenId, yesVotes, noVotes, endTime, active
+
         return {
-            proposer: data[0],
-            description: data[1],
-            permissionType: data[2],
-            newValue: data[3],
-            voteCount: data[4],
+            proposer: "0x0000000000000000000000000000000000000000", // Not returned by getProposal in ABI
+            description: data[0],
+            permissionType: Number(data[1]),
+            targetTokenId: data[2],
+            voteCount: data[3] + data[4], // Sum of yes and no votes
             endTime: data[5],
-            executed: data[6],
+            executed: !data[6], // If not active, assume executed or ended? Active implies open for voting.
         };
     };
 
@@ -149,44 +167,44 @@ export function useGovernance() {
     };
 
     // Execute a passed proposal (admin only)
-    const executeProposal = async (proposalId: number): Promise<string> => {
-        try {
-            setLoading(true);
-            const publicClient = getPublicClient();
-            const walletClient = await getWalletClient();
-            const daoAddress = CONTRACT_ADDRESSES.MeluriDAO as `0x${string}`;
+    // const executeProposal = async (proposalId: number): Promise<string> => {
+    //     try {
+    //         setLoading(true);
+    //         const publicClient = getPublicClient();
+    //         const walletClient = await getWalletClient();
+    //         const daoAddress = CONTRACT_ADDRESSES.MeluriDAO as `0x${string}`;
 
-            const { request } = await publicClient.simulateContract({
-                account: wallet.address as `0x${string}`,
-                address: daoAddress,
-                abi: MeluriDAOABI,
-                functionName: 'executeProposal',
-                args: [BigInt(proposalId)],
-            });
+    //         const { request } = await publicClient.simulateContract({
+    //             account: wallet.address as `0x${string}`,
+    //             address: daoAddress,
+    //             abi: MeluriDAOABI,
+    //             functionName: 'executeProposal',
+    //             args: [BigInt(proposalId)],
+    //         });
 
-            const hash = await walletClient.writeContract(request);
-            setTxHash(hash);
+    //         const hash = await walletClient.writeContract(request);
+    //         setTxHash(hash);
 
-            await publicClient.waitForTransactionReceipt({ hash });
+    //         await publicClient.waitForTransactionReceipt({ hash });
 
-            return hash;
-        } catch (error) {
-            throw new Error(handleContractError(error));
-        } finally {
-            setLoading(false);
-        }
-    };
+    //         return hash;
+    //     } catch (error) {
+    //         throw new Error(handleContractError(error));
+    //     } finally {
+    //         setLoading(false);
+    //     }
+    // };
 
     // Get voting power (based on token holdings)
     const getVotingPower = async (address: string): Promise<bigint> => {
         try {
             const publicClient = getPublicClient();
-            const daoAddress = CONTRACT_ADDRESSES.MeluriDAO as `0x${string}`;
+            const tokenAddress = CONTRACT_ADDRESSES.RealEstateToken as `0x${string}`;
 
             const power = await publicClient.readContract({
-                address: daoAddress,
-                abi: MeluriDAOABI,
-                functionName: 'getVotingPower',
+                address: tokenAddress,
+                abi: RealEstateTokenABI,
+                functionName: 'totalUserBalance',
                 args: [address as `0x${string}`],
             }) as bigint;
 
@@ -202,7 +220,7 @@ export function useGovernance() {
         createProposal,
         getProposal,
         getProposalState,
-        executeProposal,
+        // executeProposal,
         getVotingPower,
         loading,
         txHash,

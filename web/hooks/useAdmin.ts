@@ -128,8 +128,8 @@ export function useAdmin() {
     // Create a DAO proposal
     const createDAOProposal = async (
         description: string,
-        permissionType: string,
-        newValue: string,
+        permissionType: number,
+        targetTokenId: bigint,
         durationDays: number
     ): Promise<string> => {
         try {
@@ -143,7 +143,7 @@ export function useAdmin() {
                 address: daoAddress,
                 abi: MeluriDAOABI,
                 functionName: 'createProposal',
-                args: [description, permissionType, newValue, BigInt(durationDays)],
+                args: [description, permissionType, targetTokenId, BigInt(durationDays * 86400)], // Convert days to seconds
             });
 
             const hash = await walletClient.writeContract(request);
