@@ -1,0 +1,36 @@
+
+# General
+node_modules
+.env
+.env.*
+!.env.example
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+.idea
+.vscode
+coverage
+public/storage
+
+# Contracts (Hardhat)
+contracts/artifacts
+contracts/cache
+contracts/typechain-types
+contracts/deployment_log.txt
+contracts/deploy_*.txt
+
+# Web (Next.js)
+web/.next
+web/out
+web/build
+web/.vercel
+
+# API (NestJS)
+api/dist
+api/test/coverage
+
+# Mobile
+mobile/.expo
+mobile/web-build

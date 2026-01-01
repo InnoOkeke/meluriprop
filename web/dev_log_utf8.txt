@@ -1,0 +1,59 @@
+﻿
+> web@0.1.0 dev
+> next dev
+
+node.exe :  ÔÜá Port 
+3000 is in use by an 
+unknown process, 
+using available port 
+3001 instead.
+At C:\Program Files\n
+odejs\npm.ps1:29 
+char:3
++   & $NODE_EXE 
+$NPM_CLI_JS $args
++   ~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~
+    + CategoryInfo   
+           : NotSpe  
+  cified: ( ÔÜá Po   
+ rt 3000 ...t 300    
+1 instead.:Strin    
+g) [], RemoteExc    
+eption
+    + FullyQualified 
+   ErrorId : Native  
+  CommandError
+ 
+   Ôû▓ Next.js 16.0.10 (Turbopack)
+   - Local:         http://localhost:3001
+   - Network:       http://192.168.101.14:3001
+   - Environments: .env
+
+ Ô£ô Starting...
+ Ô¿» Unable to 
+acquire lock at C:\Us
+ers\IMAOBONG\meluripr
+op\web\.next\dev\lock
+, is another 
+instance of next dev 
+running?
+   Suggestion: If you intended to restart next dev, terminate the other process, and then try again.
+[?25h
+npm error Lifecycle 
+script `dev` failed 
+with error:
+npm error code 1
+npm error path C:\Use
+rs\IMAOBONG\meluripro
+p\web
+npm error workspace 
+web@0.1.0
+npm error location C:
+\Users\IMAOBONG\melur
+iprop\web
+npm error command 
+failed
+npm error command C:\
+WINDOWS\system32\cmd.
+exe /d /s /c next dev
