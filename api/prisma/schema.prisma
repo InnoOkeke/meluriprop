@@ -1,0 +1,137 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum KycStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum TransactionType {
+  DEPOSIT
+  INVESTMENT
+  RENTAL_PAYOUT
+  WITHDRAWAL
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model User {
+  id        String   @id // Privy DID
+  email     String?  @unique
+  walletAddress String?
+  kycStatus KycStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  investments Investment[]
+  transactions Transaction[]
+  votes       Vote[]
+  
+  @@map("users")
+}
+
+model Property {
+  id          Int      @id @default(autoincrement()) // Maps to Token ID
+  name        String
+  description String
+  location    String
+  valuation   Decimal  @db.Decimal(20, 2)
+  targetRaise Decimal  @db.Decimal(20, 2)
+  minInvestment Decimal @db.Decimal(20, 2)
+  images      String[] // URLs
+  documents   String[] // IPFS Hashes or URLs
+  
+  tokenId     Int?     @unique
+  contractAddress String?
+
+  investments Investment[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("properties")
+}
+
+model Investment {
+  id        String   @id @default(uuid())
+  userId    String
+  propertyId Int
+  amount    Decimal  @db.Decimal(20, 2)
+  tokens    Decimal  @db.Decimal(20, 0)
+  
+  user      User     @relation(fields: [userId], references: [id])
+  property  Property @relation(fields: [propertyId], references: [id])
+  
+  createdAt DateTime @default(now())
+  
+  @@map("investments")
+}
+
+model Transaction {
+  id        String   @id @default(uuid())
+  userId    String
+  type      TransactionType
+  amount    Decimal  @db.Decimal(20, 2)
+  currency  String   @default("USDC")
+  txHash    String?
+  status    TransactionStatus @default(PENDING)
+  
+  user      User     @relation(fields: [userId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("transactions")
+}
+
+enum PermissionType {
+  Global
+  AnyInvestor
+  SpecificHolders
+}
+
+model Proposal {
+  id          Int      @id @default(autoincrement())
+  description String
+  permissionType PermissionType
+  targetTokenId Int?     // If SpecificHolders
+  startTime   DateTime
+  endTime     DateTime
+  active      Boolean  @default(true)
+  
+  votes       Vote[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("proposals")
+}
+
+model Vote {
+  id        String   @id @default(uuid())
+  proposalId Int
+  userId    String
+  support   Boolean
+  
+  proposal  Proposal @relation(fields: [proposalId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([proposalId, userId]) // One vote per user per proposal
+  @@map("votes")
+}
