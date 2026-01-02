@@ -1,0 +1,23 @@
+services:
+  # Backend API Service
+  - type: web
+    name: meluri-api
+    env: node
+    plan: free
+    repo: https://github.com/InnoOkeke/meluriprop # Render will expect you to connect this repo
+    rootDir: api
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
+    envVars:
+      - key: DATABASE_URL
+        sync: false # User provides Neon connection string
+      - key: FRONTEND_URL
+        sync: false # User provides Vercel URL
+      - key: PORT
+        value: 10000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: PRIVY_APP_ID
+        sync: false 
+      - key: PRIVY_APP_SECRET
+        sync: false

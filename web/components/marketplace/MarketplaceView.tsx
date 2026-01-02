@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge"
 
 export default function MarketplaceView() {
     const { authenticated } = usePrivy()
-    const { buyProperty, approveUSDC, getActiveListings, loading: contractLoading } = useMarketplace()
+    const { buyProperty, approveUSDC, getProperties, loading: contractLoading } = useMarketplace()
 
     const [properties, setProperties] = useState<Property[]>([])
     const [loading, setLoading] = useState(true)
@@ -42,39 +42,46 @@ export default function MarketplaceView() {
     const fetchProperties = async () => {
         try {
             setLoading(true);
-            const listings = await getActiveListings();
+            const apiProperties = await getProperties();
 
-            // Map listings to Property interface
-            const mappedProperties = listings.map(listing => {
-                const categoryMap = ["Residential", "Commercial", "Shortlet"]; // Enum mapping
-                const catIndex = Number(listing.property.category);
+            // Map API properties to UI Interface
+            const mappedProperties = apiProperties.map((p: any) => {
+                const category = p.category || "Residential"; // Default if missing
 
                 // Image Mapping
-                let imagePath = "/images/property_vi_waterfront.png"; // Default
-                const name = listing.property.name.toLowerCase();
-                if (name.includes("lagos tech")) imagePath = "/images/property_vi_commercial_1767224722088.png";
-                else if (name.includes("eko atlantic")) imagePath = "/images/property_vi_waterfront.png";
-                else if (name.includes("banana island")) imagePath = "/images/property_ikoyi_luxury.png";
-                else if (name.includes("mainland")) imagePath = "/images/property_ikeja_retail_1767224752311.png";
-                else if (name.includes("surulere")) imagePath = "/images/property_lekki_shortlet_1767224780085.png";
+                let imagePath = "/images/property_vi_waterfront.png";
+                if (p.images && p.images.length > 0) {
+                    imagePath = p.images[0];
+                } else {
+                    // Fallback based on name for demo
+                    const name = p.name.toLowerCase();
+                    if (name.includes("lagos tech")) imagePath = "/images/property_vi_commercial_1767224722088.png";
+                    else if (name.includes("eko atlantic")) imagePath = "/images/property_vi_waterfront.png";
+                    else if (name.includes("banana island")) imagePath = "/images/property_ikoyi_luxury.png";
+                    else if (name.includes("mainland")) imagePath = "/images/property_ikeja_retail_1767224752311.png";
+                    else if (name.includes("surulere")) imagePath = "/images/property_lekki_shortlet_1767224780085.png";
+                }
 
                 return {
-                    id: listing.listingId,
-                    name: listing.property.name,
-                    location: listing.property.location,
-                    price: Number(listing.pricePerShare), // Assuming price is per token/share
-                    image: imagePath,
-                    category: categoryMap[catIndex] || "Residential",
-                    roi: 12.5, // Mock or calc
-                    available: Number(listing.amount),
-                    totalValue: Number(listing.property.valuation),
-                    funded: 0 // Mock
+                    id: p.id,
+                    name: p.name,
+                    location: p.location,
+                    price: Number(p.minInvestment) || 100,
+                    imageUrl: imagePath,
+                    category: category,
+                    roi: "12.5%",
+                    investors: 0,
+                    status: "active",
+                    totalValue: Number(p.valuation),
+                    // Extra fields
+                    available: Number(p.targetRaise),
+                    funded: 0
                 } as any;
             });
 
             setProperties(mappedProperties);
         } catch (err) {
-            console.error("Failed to fetch blockchain listings:", err);
+            console.error("Failed to fetch properties:", err);
         } finally {
             setLoading(false);
         }

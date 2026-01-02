@@ -1,6 +1,6 @@
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { createPublicClient, createWalletClient, custom, http, parseUnits, formatUnits } from 'viem';
-import { circleArcTestnet, CONTRACT_ADDRESSES } from '@/config';
+import { circleArcTestnet, CONTRACT_ADDRESSES, API_URL } from '@/config';
 import { MarketplaceABI } from '@/lib/abis/Marketplace';
 import { PropertiesRegistryABI } from '@/lib/abis/PropertiesRegistry';
 import { USDCABI } from '@/lib/abis/USDC';
@@ -208,12 +208,25 @@ export function useMarketplace() {
 
 
 
+    // Get all properties from API substitute for getActiveListings
+    const getProperties = async (): Promise<any[]> => {
+        try {
+            const response = await fetch(`${API_URL}/properties`);
+            if (!response.ok) throw new Error('Failed to fetch properties');
+            return await response.json();
+        } catch (error) {
+            console.error("Failed to fetch properties from API:", error);
+            return [];
+        }
+    };
+
     return {
         buyProperty,
         approveUSDC,
         getListing,
-        getProperty, // Exported
+        getProperty,
         getActiveListings,
+        getProperties, // Export API fetcher
         getUSDCAllowance,
         calculatePurchasePrice,
         loading,

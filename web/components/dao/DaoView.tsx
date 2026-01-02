@@ -53,29 +53,14 @@ export default function DaoView() {
         }
 
         try {
-            try {
-                await castVote(proposalId, support);
-            } catch (blockchainErr) {
-                console.warn("On-chain voting failed, falling back to API sync for demo:", blockchainErr);
-            }
+            // castVote now calls the API directly
+            await castVote(proposalId, support);
 
-            const token = await getAccessToken()
-            const res = await fetch(`${API_URL}/dao/vote`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify({ proposalId, support })
-            })
-
-            if (res.ok) {
-                fetchProposals()
-            } else {
-                alert("Voting failed. Please try again.")
-            }
-        } catch (err) {
+            // Refresh proposals
+            fetchProposals();
+        } catch (err: any) {
             console.error("Voting failed:", err)
+            alert(`Voting failed: ${err.message || "Unknown error"}`)
         }
     }
 
