@@ -494,9 +494,9 @@ export default function AdminView() {
                                     <div>
                                         <label className="block text-[10px] font-black text-slate-400 uppercase">Permission Type</label>
                                         <select className="w-full h-14 px-4 bg-slate-50 rounded-xl border border-slate-200 font-bold" value={proposalData.permissionType} onChange={e => setProposalData({ ...proposalData, permissionType: Number(e.target.value) })}>
-                                            <option value={0}>General</option>
-                                            <option value={1}>Pause Contract</option>
-                                            <option value={2}>Upgrade Contract</option>
+                                            <option value={0}>Global (All Verified Users)</option>
+                                            <option value={1}>Any Investor (Hold Any Token)</option>
+                                            <option value={2}>Specific Holders (Target Token)</option>
                                         </select>
                                     </div>
 
