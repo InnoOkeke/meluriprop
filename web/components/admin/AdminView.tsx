@@ -29,6 +29,7 @@ import { MarketplaceABI } from '@/lib/abis/Marketplace';
 import { RealEstateTokenABI } from '@/lib/abis/RealEstateToken';
 import { DistributionABI } from '@/lib/abis/Distribution';
 import { USDCABI } from '@/lib/abis/USDC';
+import { MeluriDAOABI } from '@/lib/abis/MeluriDAO';
 
 // Detailed Progress State
 type ProgressStep = 'IDLE' | 'UPLOADING' | 'SWITCHING_NETWORK' | 'PREPARING_TX' | 'WAITING_SIGNATURE' | 'MINTING' | 'APPROVING' | 'LISTING' | 'SAVING' | 'SUCCESS';
@@ -49,6 +50,14 @@ export default function AdminView() {
 
     // Dividend State
     const [dividendData, setDividendData] = useState({ tokenId: '', amount: '' });
+
+    // Proposal State
+    const [proposalData, setProposalData] = useState({
+        description: '',
+        permissionType: 0,
+        targetTokenId: '',
+        durationSeconds: 86400 // 24 hours default
+    });
 
     // Property Form State
     const [propertyData, setPropertyData] = useState({
@@ -270,7 +279,46 @@ export default function AdminView() {
         }
     };
 
-    const handleProposalSubmit = async (e: React.FormEvent) => { /* ... existing logic ... */ };
+    const handleProposalSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        try {
+            const wallet = wallets[0];
+            if (!wallet) throw new Error("Wallet not connected");
+
+            const publicClient = createPublicClient({ chain: circleArcTestnet, transport: http() });
+            const provider = await wallet.getEthereumProvider();
+            const walletClient = createWalletClient({ account: wallet.address as `0x${string}`, chain: circleArcTestnet, transport: custom(provider) });
+
+            // 1. Create Proposal
+            setProgressStep('MINTING'); // Reusing step for generic "Saving/Processing"
+            setStatusMessage('Creating Governance Proposal...');
+
+            const { request: proposalReq } = await publicClient.simulateContract({
+                account: wallet.address as `0x${string}`,
+                address: CONTRACT_ADDRESSES.MeluriDAO as `0x${string}`,
+                abi: MeluriDAOABI,
+                functionName: 'createProposal',
+                args: [
+                    proposalData.description,
+                    proposalData.permissionType,
+                    BigInt(proposalData.targetTokenId || 0),
+                    BigInt(proposalData.durationSeconds)
+                ],
+            });
+
+            const txHash = await walletClient.writeContract(proposalReq);
+            await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+            setProgressStep('SUCCESS');
+            setStatusMessage('Proposal Created Successfully!');
+            setSuccessDetails({ txHash, tokenId: 0 }); // TokenID 0 as irrelevant for proposal
+
+        } catch (err: any) {
+            console.error(err);
+            alert(`Failed: ${err.message}`);
+            setProgressStep('IDLE');
+        }
+    };
 
     const handleDividendSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -434,6 +482,45 @@ export default function AdminView() {
                                 <Button type="submit" disabled={progressStep !== 'IDLE'} className="w-full h-16 rounded-2xl font-bold uppercase tracking-widest text-xs shadow-xl shadow-primary/20">
                                     <CheckCircle2 className="h-4 w-4 mr-2" />
                                     Mint & List Property
+                                </Button>
+                            </motion.form>
+                        ) : activeTab === 'proposal' ? (
+                            <motion.form initial={{ opacity: 0 }} animate={{ opacity: 1 }} onSubmit={handleProposalSubmit} className="space-y-8">
+                                <div className="flex items-center gap-4 mb-4">
+                                    <div className="h-14 w-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600"><Vote className="h-7 w-7" /></div>
+                                    <h2 className="text-2xl font-heading font-black text-slate-950">New Governance Proposal</h2>
+                                </div>
+
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-400 uppercase">Proposal Description</label>
+                                        <Input className="h-14 rounded-xl bg-slate-50 font-bold" placeholder="e.g. Upgrade Marketplace Contract" value={proposalData.description} onChange={e => setProposalData({ ...proposalData, description: e.target.value })} required />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-400 uppercase">Permission Type</label>
+                                        <select className="w-full h-14 px-4 bg-slate-50 rounded-xl border border-slate-200 font-bold" value={proposalData.permissionType} onChange={e => setProposalData({ ...proposalData, permissionType: Number(e.target.value) })}>
+                                            <option value={0}>General</option>
+                                            <option value={1}>Pause Contract</option>
+                                            <option value={2}>Upgrade Contract</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-400 uppercase">Target Token ID (Optional)</label>
+                                        <Input type="number" className="h-14 rounded-xl bg-slate-50 font-bold" placeholder="e.g. 1" value={proposalData.targetTokenId} onChange={e => setProposalData({ ...proposalData, targetTokenId: e.target.value })} />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-400 uppercase">Duration (Seconds)</label>
+                                        <Input type="number" className="h-14 rounded-xl bg-slate-50 font-bold" value={proposalData.durationSeconds} onChange={e => setProposalData({ ...proposalData, durationSeconds: Number(e.target.value) })} required />
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2">{Math.floor(proposalData.durationSeconds / 3600)} Hours</p>
+                                    </div>
+                                </div>
+
+                                <Button type="submit" disabled={progressStep !== 'IDLE'} className="w-full h-16 rounded-2xl font-bold uppercase tracking-widest text-xs shadow-xl shadow-indigo-500/20 bg-indigo-600 hover:bg-indigo-700 text-white">
+                                    <Vote className="h-4 w-4 mr-2" />
+                                    Create Proposal
                                 </Button>
                             </motion.form>
                         ) : activeTab === 'dividends' ? (
