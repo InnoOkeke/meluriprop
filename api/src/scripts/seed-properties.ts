@@ -12,7 +12,7 @@ dotenv.config({ path: envPath });
 const abiPath = path.resolve(__dirname, '../blockchain/abis/PropertiesRegistry.json');
 const PropertiesRegistryABI = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
 
-const PROPERTIES_REGISTRY_ADDRESS = '0x8157c296d175bA336C3Ca471517D0A2176816eE3';
+const PROPERTIES_REGISTRY_ADDRESS = '0xA6c1DE875F39818B6cF8861bA16886F0776448Fd';
 
 async function main() {
     console.log("Starting seed script...");

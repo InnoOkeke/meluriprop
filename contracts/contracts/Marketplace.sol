@@ -19,6 +19,7 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         uint256 tokenId;
         uint256 amount;
         uint256 pricePerShare; // In USDC units
+        uint256 minPurchaseValue; // In USDC units
         bool isActive;
     }
 
@@ -26,7 +27,7 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
     mapping(uint256 => Listing) public listings;
     uint256 public nextListingId;
 
-    event ListingCreated(uint256 indexed listingId, address indexed seller, uint256 indexed tokenId, uint256 amount, uint256 price);
+    event ListingCreated(uint256 indexed listingId, address indexed seller, uint256 indexed tokenId, uint256 amount, uint256 price, uint256 minPurchaseValue);
     event ListingCancelled(uint256 indexed listingId);
     event ListingSold(uint256 indexed listingId, address indexed buyer, uint256 amount);
 
@@ -48,7 +49,7 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         nextListingId = 1;
     }
 
-    function createListing(uint256 tokenId, uint256 amount, uint256 pricePerShare) external {
+    function createListing(uint256 tokenId, uint256 amount, uint256 pricePerShare, uint256 minPurchaseValue) external {
         require(realEstateToken.balanceOf(msg.sender, tokenId) >= amount, "Insufficient balance");
         require(realEstateToken.isApprovedForAll(msg.sender, address(this)), "Marketplace not approved");
 
@@ -57,10 +58,11 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
             tokenId: tokenId,
             amount: amount,
             pricePerShare: pricePerShare,
+            minPurchaseValue: minPurchaseValue,
             isActive: true
         });
 
-        emit ListingCreated(nextListingId, msg.sender, tokenId, amount, pricePerShare);
+        emit ListingCreated(nextListingId, msg.sender, tokenId, amount, pricePerShare, minPurchaseValue);
         nextListingId++;
     }
 
@@ -79,6 +81,7 @@ contract Marketplace is Initializable, AccessControlUpgradeable, UUPSUpgradeable
         require(listing.amount >= amount, "Not enough quantity");
 
         uint256 totalPrice = amount * listing.pricePerShare;
+        require(totalPrice >= listing.minPurchaseValue, "Purchase below minimum limit");
 
         // Note: We transfer the property token FIRST. 
         // If this fails (e.g. buyer is not KYC verified), the transaction reverts,

@@ -36,9 +36,10 @@ interface Investment {
 
 export default function PortfolioView() {
     const { ready, authenticated, getAccessToken, user } = usePrivy()
-    const { balances, loading: loadingBalances, fetchBalances } = usePortfolio()
+    const { balances, loading: loadingBalances, fetchBalances, getTotalPendingRent, claimAllRent } = usePortfolio()
     const [investments, setInvestments] = useState<Investment[]>([])
     const [loading, setLoading] = useState(true)
+    const [pendingRent, setPendingRent] = useState("0")
 
     useEffect(() => {
         if (authenticated) {
@@ -62,6 +63,10 @@ export default function PortfolioView() {
                 setInvestments(data)
                 const ids = data.map((inv: Investment) => Number(inv.id))
                 fetchBalances(ids)
+
+                // Fetch pending rent
+                const totalRent = await getTotalPendingRent(ids)
+                setPendingRent(totalRent)
             }
         } catch (err) {
             console.error("Failed to fetch investments:", err)
@@ -69,6 +74,15 @@ export default function PortfolioView() {
             setLoading(false)
         }
     }
+
+    const handleClaimAll = async () => {
+        if (Number(pendingRent) <= 0) return;
+        const ids = investments.map(inv => Number(inv.id));
+        await claimAllRent(ids);
+        // Refresh
+        const totalRent = await getTotalPendingRent(ids);
+        setPendingRent(totalRent);
+    };
 
     const totalValue = investments.reduce((sum, inv) => sum + Number(inv.amount), 0)
 
@@ -142,8 +156,11 @@ export default function PortfolioView() {
                             <Clock className="h-4 w-4 mr-2" />
                             Activity Logs
                         </Button>
-                        <Button className="flex-1 lg:flex-none h-16 px-8 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20 bg-primary text-primary-foreground hover:bg-primary/90">
-                            Claim All Yield
+                        <Button
+                            onClick={handleClaimAll}
+                            disabled={Number(pendingRent) <= 0}
+                            className="flex-1 lg:flex-none h-16 px-8 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-xl shadow-primary/20 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed">
+                            Claim All Yield {Number(pendingRent) > 0 && `($${pendingRent})`}
                         </Button>
                     </motion.div>
                 </div>

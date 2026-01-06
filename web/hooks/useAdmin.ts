@@ -94,7 +94,8 @@ export function useAdmin() {
     const createListing = async (
         tokenId: number,
         amount: number,
-        pricePerShare: string
+        pricePerShare: string,
+        minPurchaseValue: string
     ): Promise<string> => {
         try {
             setLoading(true);
@@ -103,13 +104,14 @@ export function useAdmin() {
             const marketplaceAddress = CONTRACT_ADDRESSES.Marketplace as `0x${string}`;
 
             const pricePerShareWei = parseUSDC(pricePerShare);
+            const minPurchaseValueWei = parseUSDC(minPurchaseValue);
 
             const { request } = await publicClient.simulateContract({
                 account: wallet.address as `0x${string}`,
                 address: marketplaceAddress,
                 abi: MarketplaceABI,
                 functionName: 'createListing',
-                args: [BigInt(tokenId), BigInt(amount), pricePerShareWei],
+                args: [BigInt(tokenId), BigInt(amount), pricePerShareWei, minPurchaseValueWei],
             });
 
             const hash = await walletClient.writeContract(request);

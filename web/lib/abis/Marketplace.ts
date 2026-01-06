@@ -8,7 +8,19 @@ export const MarketplaceABI = [
             },
             {
                 "internalType": "uint256",
+            {
+                "internalType": "uint256",
                 "name": "amount",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "pricePerShare",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "minPurchaseValue",
                 "type": "uint256"
             }
         ],
@@ -68,6 +80,11 @@ export const MarketplaceABI = [
             {
                 "internalType": "uint256",
                 "name": "pricePerShare",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "minPurchaseValue",
                 "type": "uint256"
             },
             {
