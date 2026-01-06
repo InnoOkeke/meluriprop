@@ -30,6 +30,7 @@ web/.vercel
 # API (NestJS)
 api/dist
 api/test/coverage
+api/uploads
 
 # Mobile
 mobile/.expo
