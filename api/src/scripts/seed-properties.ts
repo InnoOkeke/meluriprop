@@ -12,7 +12,7 @@ dotenv.config({ path: envPath });
 const abiPath = path.resolve(__dirname, '../blockchain/abis/PropertiesRegistry.json');
 const PropertiesRegistryABI = JSON.parse(fs.readFileSync(abiPath, 'utf8'));
 
-const PROPERTIES_REGISTRY_ADDRESS = '0xF249B10d05394e4A4FB74802127ef096812306bB';
+const PROPERTIES_REGISTRY_ADDRESS = '0x8157c296d175bA336C3Ca471517D0A2176816eE3';
 
 async function main() {
     console.log("Starting seed script...");
@@ -20,7 +20,7 @@ async function main() {
     // 1. Setup
     const prisma = new PrismaClient();
 
-    const rpcUrl = process.env.RPC_URL || 'https://alfajores-forno.celo-testnet.org';
+    const rpcUrl = process.env.RPC_URL || 'https://rpc.testnet.arc.network';
     const privateKey = process.env.PRIVATE_KEY;
 
     if (!privateKey) {
@@ -32,42 +32,52 @@ async function main() {
     const wallet = new ethers.Wallet(privateKey, provider);
     const registry = new ethers.Contract(PROPERTIES_REGISTRY_ADDRESS, PropertiesRegistryABI.abi, wallet);
 
-    // 2. Data (Lagos properties)
+    // 2. Data (Lagos properties matching frontend assets)
     const properties = [
         {
-            name: "Luxury Apartment in VI",
-            location: "Victoria Island, Lagos",
+            name: "Eko Atlantic Premium",
+            location: "Eko Atlantic City, Lagos",
             val: "500000",
             raise: "100000",
-            desc: "Premium 3-bedroom apartment with ocean view."
+            desc: "Premium waterfront apartment with ocean view.",
+            image: "/images/property_vi_waterfront.png",
+            category: "Residential"
         },
         {
-            name: "Commercial Hub Ikeja",
+            name: "Mainland Retail Hub",
             location: "Ikeja, Lagos",
             val: "1000000",
             raise: "200000",
-            desc: "Central business district office space near Ikeja Mall."
+            desc: "Central business district retail space near Ikeja Mall.",
+            image: "/images/property_ikeja_retail_1767224752311.png",
+            category: "Commercial"
         },
         {
-            name: "Waterfront Condo Ikoyi",
-            location: "Ikoyi, Lagos",
+            name: "Banana Island Mansion",
+            location: "Banana Island, Ikoyi",
             val: "2000000",
             raise: "500000",
-            desc: "Exclusive waterfront living in the heart of Ikoyi."
+            desc: "Exclusive luxury living in Nigeria's most prestigious neighborhood.",
+            image: "/images/property_ikoyi_luxury.png",
+            category: "Residential"
         },
         {
-            name: "Lekki Gardens Villa",
-            location: "Lekki, Lagos",
+            name: "Surulere Shortlet Scheme",
+            location: "Surulere, Lagos",
             val: "750000",
             raise: "150000",
-            desc: "Spacious family villa in a gated community."
+            desc: "High-yield shortlet apartments in a cultural hotspot.",
+            image: "/images/property_lekki_shortlet_1767224780085.png",
+            category: "Shortlet"
         },
         {
-            name: "Yaba Tech Park",
+            name: "Lagos Tech Valley",
             location: "Yaba, Lagos",
             val: "3000000",
             raise: "1000000",
-            desc: "Modern office complex for tech startups and innovation hubs."
+            desc: "Modern office complex for tech startups and innovation hubs.",
+            image: "/images/property_vi_commercial_1767224722088.png",
+            category: "Commercial"
         },
     ];
 
@@ -75,12 +85,17 @@ async function main() {
     for (const p of properties) {
         console.log(`\nProcessing: ${p.name}`);
 
-        // Check if already exists in DB to avoid dupes?
-        // Actually, we want to mint on chain. If we re-run, we might mint duplicates on chain.
-        // Ideally we check chain for duplicates or just assume fresh seed.
-        // For now, we proceed.
-
         try {
+            // Check if exists in DB to avoid duplicates (based on name)
+            const existing = await prisma.property.findFirst({
+                where: { name: p.name }
+            });
+
+            if (existing) {
+                console.log(`Property ${p.name} already in DB. Skipping minting to save gas.`);
+                continue;
+            }
+
             // Convert to Wei (18 decimals)
             const valuationWei = ethers.parseUnits(p.val, 18);
             const raiseWei = ethers.parseUnits(p.raise, 18);
@@ -120,21 +135,20 @@ async function main() {
             }
 
             console.log(`Creating Database Record for Token ID ${tokenId}...`);
-            const dbVal = parseFloat(p.val); // Storing as simple number/decimal in DB? Model says Decimal.
-            // Prisma Decimal expects string or number.
 
             await prisma.property.create({
                 data: {
                     name: p.name,
                     description: p.desc,
                     location: p.location,
-                    valuation: p.val, // Prisma handles string -> Decimal
+                    valuation: p.val,
                     targetRaise: p.raise,
-                    minInvestment: 100, // default
+                    minInvestment: 100,
                     tokenId: Number(tokenId),
                     contractAddress: PROPERTIES_REGISTRY_ADDRESS,
-                    images: ["https://placehold.co/600x400"],
-                    documents: ["QmHashPlaceholder"]
+                    images: [p.image],
+                    documents: ["QmHashPlaceholder"],
+                    category: p.category
                 }
             });
             console.log(`Success.`);
@@ -153,5 +167,5 @@ main()
         process.exit(1);
     })
     .finally(async () => {
-        // Disconnect prisma
+        // Disconnect prisma if needed, though script exit handles it
     });

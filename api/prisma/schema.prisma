@@ -57,6 +57,7 @@ model Property {
   
   tokenId     Int?     @unique
   contractAddress String?
+  category    String   @default("Residential")
 
   investments Investment[]
   

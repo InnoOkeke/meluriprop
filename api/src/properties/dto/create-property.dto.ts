@@ -7,4 +7,7 @@ export class CreatePropertyDto {
     minInvestment: number;
     images?: string[];
     documents?: string[];
+    category?: string;
+    tokenId?: number;
+    contractAddress?: string;
 }

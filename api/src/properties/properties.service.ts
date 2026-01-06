@@ -18,6 +18,9 @@ export class PropertiesService {
         minInvestment: createPropertyDto.minInvestment,
         images: createPropertyDto.images || [],
         documents: createPropertyDto.documents || [],
+        category: createPropertyDto.category || "Residential",
+        tokenId: createPropertyDto.tokenId ? Number(createPropertyDto.tokenId) : undefined,
+        contractAddress: createPropertyDto.contractAddress || undefined,
       },
     });
   }

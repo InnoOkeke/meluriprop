@@ -1,8 +1,8 @@
 "use client"
 
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { useState, useEffect } from 'react';
-import { API_URL, ADMIN_WALLETS } from '@/config';
+import { API_URL, ADMIN_WALLETS, CONTRACT_ADDRESSES, circleArcTestnet } from '@/config';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
@@ -21,13 +21,18 @@ import {
     Image as ImageIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
+import { createWalletClient, custom, createPublicClient, http, parseUnits } from 'viem';
+import { PropertiesRegistryABI } from '@/lib/abis/PropertiesRegistry';
 
 export default function AdminView() {
     const { ready, authenticated, user, getAccessToken, login } = usePrivy();
+    const { wallets } = useWallets();
     const [activeTab, setActiveTab] = useState<'property' | 'proposal'>('property');
     const [loading, setLoading] = useState(false);
     const [isAdmin, setIsAdmin] = useState(false);
+
+    // File Upload State
+    const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string>('');
 
     // Property Form State
@@ -36,7 +41,7 @@ export default function AdminView() {
         location: '',
         valuation: '',
         targetRaise: '',
-        imageUrl: '',
+        category: 'Residential',
     });
 
     // Proposal Form State
@@ -51,23 +56,105 @@ export default function AdminView() {
     useEffect(() => {
         if (authenticated && user?.wallet?.address) {
             const walletAddress = user.wallet.address.toLowerCase();
-            console.log('🔍 Admin Check Debug:');
-            console.log('  User wallet:', walletAddress);
-            console.log('  Admin wallets configured:', ADMIN_WALLETS);
-            console.log('  ADMIN_WALLETS length:', ADMIN_WALLETS.length);
             const isAuthorized = ADMIN_WALLETS.includes(walletAddress);
-            console.log('  Is authorized:', isAuthorized);
             setIsAdmin(isAuthorized);
         } else {
             setIsAdmin(false);
         }
     }, [authenticated, user]);
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setImageFile(file);
+            setImagePreview(URL.createObjectURL(file));
+        }
+    };
+
     const handlePropertySubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         try {
             const token = await getAccessToken();
+            const wallet = wallets[0];
+            if (!wallet) throw new Error("Wallet not connected");
+
+            let imageUrl = '';
+
+            // 1. Upload Image
+            if (imageFile) {
+                const formData = new FormData();
+                formData.append('file', imageFile);
+
+                const uploadRes = await fetch(`${API_URL}/upload`, {
+                    method: 'POST',
+                    body: formData, // No auth needed for upload for now, or check backend
+                });
+
+                if (!uploadRes.ok) throw new Error("Image upload failed");
+                const uploadData = await uploadRes.json();
+                imageUrl = uploadData.url;
+            }
+
+            // 2. Mint on Blockchain
+            const publicClient = createPublicClient({
+                chain: circleArcTestnet,
+                transport: http(),
+            });
+
+            const provider = await wallet.getEthereumProvider();
+            const walletClient = createWalletClient({
+                account: wallet.address as `0x${string}`,
+                chain: circleArcTestnet,
+                transport: custom(provider),
+            });
+
+            const valuationWei = parseUnits(propertyData.valuation, 18);
+            const targetRaiseWei = parseUnits(propertyData.targetRaise, 18);
+            const totalTokens = valuationWei;
+
+            // Hardcode IPFS/Document hash for demo
+            const documentHash = "QmHashPlaceholder";
+
+            console.log("Minting property:", propertyData.name);
+
+            const { request } = await publicClient.simulateContract({
+                account: wallet.address as `0x${string}`,
+                address: CONTRACT_ADDRESSES.PropertiesRegistry as `0x${string}`,
+                abi: PropertiesRegistryABI,
+                functionName: 'registerProperty',
+                args: [
+                    propertyData.name,
+                    propertyData.location,
+                    documentHash,
+                    valuationWei,
+                    targetRaiseWei,
+                    totalTokens
+                ]
+            });
+
+            const hash = await walletClient.writeContract(request);
+            console.log("Mint Tx:", hash);
+
+            // Wait for receipt
+            const receipt = await publicClient.waitForTransactionReceipt({ hash });
+
+            // Extract TokenId logic
+            let tokenId = 0;
+            try {
+                // PropertyRegistered(uint256,address,string,...)
+                // Event signature hash: 0x...
+                // Simpler: Just grab the first topic of the log from the registry address
+                const log = receipt.logs.find(l => l.address.toLowerCase() === CONTRACT_ADDRESSES.PropertiesRegistry.toLowerCase());
+                if (log && log.topics[1]) {
+                    tokenId = parseInt(log.topics[1], 16);
+                    console.log("Detected Token ID:", tokenId);
+                }
+            } catch (e) {
+                console.error("Failed to parse logs", e);
+            }
+
+            // 3. Save to DB
             const response = await fetch(`${API_URL}/properties`, {
                 method: 'POST',
                 headers: {
@@ -76,26 +163,30 @@ export default function AdminView() {
                 },
                 body: JSON.stringify({
                     name: propertyData.name,
-                    description: "Generated description",
+                    description: `Property located at ${propertyData.location}`,
                     location: propertyData.location,
                     valuation: Number(propertyData.valuation),
                     targetRaise: Number(propertyData.targetRaise),
-                    minInvestment: 100,
-                    imageUrl: propertyData.imageUrl || undefined,
+                    minInvestment: 100, // Default
+                    images: imageUrl ? [imageUrl] : [],
+                    category: propertyData.category,
+                    tokenId: tokenId || undefined,
+                    contractAddress: CONTRACT_ADDRESSES.PropertiesRegistry,
                 })
             });
 
             if (response.ok) {
-                alert('✅ Property created successfully!');
-                setPropertyData({ name: '', location: '', valuation: '', targetRaise: '', imageUrl: '' });
+                alert('✅ Property created & Minted successfully!');
+                setPropertyData({ name: '', location: '', valuation: '', targetRaise: '', category: 'Residential' });
+                setImageFile(null);
                 setImagePreview('');
             } else {
                 const error = await response.json();
-                alert(`❌ Error: ${error.message}`);
+                alert(`❌ DB Error: ${error.message} (Minting succeeded: ${hash})`);
             }
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            alert('❌ Failed to create property');
+            alert(`❌ Failed: ${err.message || err}`);
         } finally {
             setLoading(false);
         }
@@ -135,10 +226,6 @@ export default function AdminView() {
         }
     };
 
-    const handleImageUrlChange = (url: string) => {
-        setPropertyData({ ...propertyData, imageUrl: url });
-        setImagePreview(url);
-    };
 
     if (!ready) {
         return (
@@ -148,11 +235,9 @@ export default function AdminView() {
         );
     }
 
-    // Wallet connection screen
     if (!authenticated) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center p-6 relative overflow-hidden">
-                {/* Background Effects */}
                 <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary/20 rounded-full blur-[120px] -mr-64 -mt-64" />
                 <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-secondary/20 rounded-full blur-[120px] -ml-64 -mb-64" />
 
@@ -176,15 +261,11 @@ export default function AdminView() {
                         <Wallet className="h-5 w-5 mr-3" />
                         Connect Wallet
                     </Button>
-                    <p className="text-white/40 text-xs font-medium mt-6 uppercase tracking-widest">
-                        Wallet-Only Authentication
-                    </p>
                 </motion.div>
             </div>
         );
     }
 
-    // Not authorized admin screen
     if (!isAdmin) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-red-900 via-red-800 to-slate-900 flex flex-col items-center justify-center p-6 relative overflow-hidden">
@@ -199,21 +280,14 @@ export default function AdminView() {
                         <AlertTriangle className="h-10 w-10 text-red-400" />
                     </div>
                     <h2 className="text-3xl font-heading font-black text-white mb-4 tracking-tight">Access Denied</h2>
-                    <p className="text-white/70 font-medium mb-6 leading-relaxed">
-                        Your wallet address is not authorized for admin access.
-                    </p>
                     <div className="p-4 bg-black/20 rounded-2xl border border-white/10 mb-8">
                         <p className="text-xs font-mono text-white/50 break-all">{user?.wallet?.address}</p>
                     </div>
-                    <p className="text-white/40 text-xs font-medium uppercase tracking-widest">
-                        Contact system administrator for access
-                    </p>
                 </motion.div>
             </div>
         );
     }
 
-    // Admin Dashboard
     return (
         <div className="min-h-screen bg-slate-50 font-sans">
             <main className="container mx-auto px-6 py-16">
@@ -261,8 +335,6 @@ export default function AdminView() {
                     </motion.div>
                 </div>
 
-
-
                 {/* Forms Section */}
                 <div className="max-w-4xl mx-auto">
                     <Card className="rounded-[3rem] border-slate-100 shadow-soft overflow-hidden bg-white p-10 lg:p-14">
@@ -289,14 +361,19 @@ export default function AdminView() {
                                         <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 px-1">Property Image</label>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div>
-                                                <Input
-                                                    type="url"
-                                                    className="h-14 rounded-xl border-slate-100 bg-slate-50/50 font-medium text-slate-900"
-                                                    value={propertyData.imageUrl}
-                                                    onChange={e => handleImageUrlChange(e.target.value)}
-                                                    placeholder="https://example.com/image.jpg"
-                                                />
-                                                <p className="text-[9px] font-medium text-slate-400 mt-1.5 px-1">Enter image URL or leave blank for default gradient</p>
+                                                <div className="relative h-14 cursor-pointer">
+                                                    <Input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={handleFileChange}
+                                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                                    />
+                                                    <div className="h-full w-full rounded-xl border-slate-100 bg-slate-50/50 flex items-center px-4 border text-slate-500 font-medium">
+                                                        <Upload className="h-4 w-4 mr-2" />
+                                                        {imageFile ? imageFile.name : "Choose Image File..."}
+                                                    </div>
+                                                </div>
+                                                <p className="text-[9px] font-medium text-slate-400 mt-1.5 px-1">Upload JPEG, PNG or WEBP (Max 5MB)</p>
                                             </div>
                                             <div className="h-32 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/50 overflow-hidden flex items-center justify-center">
                                                 {imagePreview ? (
@@ -304,7 +381,7 @@ export default function AdminView() {
                                                         <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                                                         <button
                                                             type="button"
-                                                            onClick={() => handleImageUrlChange('')}
+                                                            onClick={() => { setImageFile(null); setImagePreview(''); }}
                                                             className="absolute top-2 right-2 h-8 w-8 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                                                         >
                                                             <X className="h-4 w-4" />
@@ -368,6 +445,19 @@ export default function AdminView() {
                                             />
                                         </div>
                                     </div>
+
+                                    <div>
+                                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Category</label>
+                                        <select
+                                            className="w-full h-14 px-4 border border-slate-100 bg-slate-50/50 rounded-xl focus:ring-4 focus:ring-primary/5 focus:border-primary/20 outline-none transition-all font-bold text-slate-900"
+                                            value={propertyData.category}
+                                            onChange={e => setPropertyData({ ...propertyData, category: e.target.value })}
+                                        >
+                                            <option value="Residential">Residential</option>
+                                            <option value="Commercial">Commercial</option>
+                                            <option value="Shortlet">Shortlet</option>
+                                        </select>
+                                    </div>
                                 </div>
 
                                 <div className="pt-6">
@@ -379,12 +469,12 @@ export default function AdminView() {
                                         {loading ? (
                                             <>
                                                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                                Creating Listing...
+                                                Minting & Creating...
                                             </>
                                         ) : (
                                             <>
                                                 <CheckCircle2 className="h-4 w-4 mr-2" />
-                                                Create Property Listing
+                                                Mint Property & Create Listing
                                             </>
                                         )}
                                     </Button>
@@ -407,6 +497,7 @@ export default function AdminView() {
                                     </div>
                                 </div>
 
+                                {/* Proposal Inputs (Same as before) */}
                                 <div className="space-y-6">
                                     <div>
                                         <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Proposal Description / Question</label>
