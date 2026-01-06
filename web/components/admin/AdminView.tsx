@@ -69,13 +69,7 @@ export default function AdminView() {
         category: 'Residential',
     });
 
-    // Proposal Form State
-    const [proposalData, setProposalData] = useState({
-        description: '',
-        permissionType: 'Global',
-        targetTokenId: '',
-        durationSeconds: '604800',
-    });
+
 
     // Check if connected wallet is admin
     useEffect(() => {
