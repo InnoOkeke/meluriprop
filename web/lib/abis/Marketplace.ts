@@ -7,7 +7,6 @@ export const MarketplaceABI = [
                 "type": "uint256"
             },
             {
-            {
                 "internalType": "uint256",
                 "name": "amount",
                 "type": "uint256"
