@@ -166,7 +166,7 @@ export default function AdminView() {
             });
 
             setProgressStep('WAITING_SIGNATURE');
-            setStatusMessage('Sign 'Mint' transaction in wallet...');
+            setStatusMessage('Sign "Mint" transaction in wallet...');
             const mintHash = await walletClient.writeContract(mintRequest);
 
             setProgressStep('MINTING');
