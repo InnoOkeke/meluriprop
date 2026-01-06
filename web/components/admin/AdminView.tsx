@@ -500,10 +500,12 @@ export default function AdminView() {
                                         </select>
                                     </div>
 
-                                    <div>
-                                        <label className="block text-[10px] font-black text-slate-400 uppercase">Target Token ID (Optional)</label>
-                                        <Input type="number" className="h-14 rounded-xl bg-slate-50 font-bold" placeholder="e.g. 1" value={proposalData.targetTokenId} onChange={e => setProposalData({ ...proposalData, targetTokenId: e.target.value })} />
-                                    </div>
+                                    {proposalData.permissionType === 2 && (
+                                        <div>
+                                            <label className="block text-[10px] font-black text-slate-400 uppercase">Target Token ID</label>
+                                            <Input type="number" className="h-14 rounded-xl bg-slate-50 font-bold" placeholder="e.g. 1" value={proposalData.targetTokenId} onChange={e => setProposalData({ ...proposalData, targetTokenId: e.target.value })} required />
+                                        </div>
+                                    )}
 
                                     <div>
                                         <label className="block text-[10px] font-black text-slate-400 uppercase">Duration (Seconds)</label>
