@@ -38,7 +38,12 @@ export default function DaoView() {
             setLoading(true)
             const res = await fetch(`${API_URL}/dao/proposals`)
             const data = await res.json()
-            setProposals(data)
+            if (Array.isArray(data)) {
+                setProposals(data)
+            } else {
+                console.error("API returned non-array:", data)
+                setProposals([])
+            }
         } catch (err) {
             console.error("Failed to fetch proposals:", err)
         } finally {
@@ -65,7 +70,7 @@ export default function DaoView() {
     }
 
     const activeProposalsCount = proposals.filter(p => new Date(p.endTime) > new Date()).length
-    const totalVotesMock = proposals.reduce((acc, p) => acc + p.votes.length, 0)
+    const totalVotesMock = Array.isArray(proposals) ? proposals.reduce((acc, p) => acc + (Array.isArray(p.votes) ? p.votes.length : 0), 0) : 0
 
     return (
         <div className="min-h-screen bg-background font-sans transition-colors duration-500">
@@ -179,10 +184,10 @@ export default function DaoView() {
                         <div className="space-y-8">
                             {proposals.length > 0 ? (
                                 proposals.map((p, idx) => {
-                                    const totalVotes = p.votes.length
-                                    const yesVotes = p.votes.filter((v: any) => v.support).length
+                                    const totalVotes = Array.isArray(p.votes) ? p.votes.length : 0
+                                    const yesVotes = Array.isArray(p.votes) ? p.votes.filter((v: any) => v.support).length : 0
                                     const noVotes = totalVotes - yesVotes
-                                    const hasVoted = p.votes.some((v: any) => user?.id && v.userId === user.id.replace("did:privy:", ""))
+                                    const hasVoted = Array.isArray(p.votes) && p.votes.some((v: any) => user?.id && v.userId === user.id.replace("did:privy:", ""))
                                     const isActive = new Date(p.endTime) > new Date()
                                     const yesPercent = totalVotes ? (yesVotes / totalVotes) * 100 : 0
                                     const noPercent = totalVotes ? (noVotes / totalVotes) * 100 : 0

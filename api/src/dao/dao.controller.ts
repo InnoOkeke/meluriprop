@@ -5,11 +5,11 @@ import { VoteDto } from './dto/vote.dto';
 import { PrivyGuard } from '../auth/privy.guard';
 
 @Controller('dao')
-@UseGuards(PrivyGuard)
 export class DaoController {
     constructor(private readonly daoService: DaoService) { }
 
     @Post('proposals')
+    @UseGuards(PrivyGuard)
     create(@Body() createProposalDto: CreateProposalDto) {
         // In a real app, check if req.user is admin
         return this.daoService.create(createProposalDto);
@@ -21,6 +21,7 @@ export class DaoController {
     }
 
     @Post('vote')
+    @UseGuards(PrivyGuard)
     vote(@Req() req, @Body() voteDto: VoteDto) {
         return this.daoService.vote(req.user.id, voteDto);
     }
